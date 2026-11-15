@@ -27,10 +27,6 @@ with open("data.json", "r") as file:
 {
     1: {
         "name": "A",
-        "neighbors": [(2, 2), (3, 5), (4, 2)],
-    }
-    : {
-        "name": "",
-        "neighbors": [()],
+        "neighbors": [[2, 2], [3, 5], [4, 2]],
     }
 }
