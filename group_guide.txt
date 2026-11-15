@@ -29,8 +29,8 @@ SAMPLE COMMANDS
 git status
 git add .
 git commit -m "Descriptive message"
-git checkout -b feature/backend-dijkstra
-git push origin feature/backend-dijkstra
+git checkout -b feature/backend-dijkstra        OR      skip
+git push origin feature/backend-dijkstra        OR      ...main
 
 
 ====================
@@ -70,8 +70,8 @@ git pull origin main
 2. Create and switch to your feature branch:
 Give it a descriptive name related to what you're building.
 
-git checkout -b test/dijkstra_routing
-
+git checkout -b backend/basic_dijkstra
+git branch --show-current
 
 3. Regularly make commits as you code the work
 
