@@ -1,0 +1,117 @@
+DIRECTORIES
+KargoGraph/
+│
+├── backend/                  # Dijkstra, A*, graph models
+│   ├── __init__.py
+│   ├── graph.py              # Graph representation and Dijkstra logic
+│   └── router.py             # Route optimization helpers
+│
+├── frontend/                 # Pyvis UI and user interface (groupmate's domain)
+│   └── app.py
+│
+├── database/                 # DB connections, schema, and queries (groupmate's domain)
+│   └── batangas_data.db
+│
+├── data/                     # Static assets, CSVs, or JSON location data for Batangas
+│   └── locations.json
+│
+├── tests/                    # Unit tests for your backend algorithms
+│   └── test_dijkstra.py
+│
+├── .gitignore                # Ignored files (venv, caches, etc.)
+├── README.md                 # Project documentation and setup instructions
+└── requirements.txt          # Python dependencies (pyvis, networkx, etc.)
+
+
+===============
+SAMPLE COMMANDS
+===============
+git status
+git add .
+git commit -m "Descriptive message"
+git checkout -b feature/backend-dijkstra
+git push origin feature/backend-dijkstra
+
+
+====================
+VIRTUAL ENVIRONMENTS
+====================
+
+# For installing stuff:
+python -m venv venv
+venv\Scripts\activate.bat    OR    venv\Scripts\Activate.ps1
+pip install pyvis
+pip freeze > requirements.txt
+
+# For cloning stuff:
+1. Clone the repo and navigate inside
+cd KargoGraph
+
+2. Create their own local virtual environment
+python -m venv venv
+source venv/bin/activate  # (or venv\Scripts\activate on Windows)
+
+3. Install everything listed in your requirements.txt
+pip install -r requirements.txt
+
+
+================
+SAMPLE SCENARIOS
+================
+Let's say we are editing tests/test_dijkstra.py:
+
+1. Start fresh from main:
+Always make sure your local main branch is up to date before creating a new branch.
+
+git checkout main
+git pull origin main
+
+
+2. Create and switch to your feature branch:
+Give it a descriptive name related to what you're building.
+
+git checkout -b test/dijkstra_routing
+
+
+3. Regularly make commits as you code the work
+
+git add tests/test_dijkstra.py
+git commit -m "test: add basic shortest path test between Lipa and Batangas City"
+
+git add tests/test_dijkstra.py
+git commit -m "test: handle unreachable nodes and same-node routing in Dijkstra"
+
+4. Push your branch to GitHub
+
+git push origin test/dijkstra-routing
+
+
+5. Write a pull request using this format
+
+    Sample Title:
+    test: Add unit tests for basic Dijkstra shortest path and edge cases
+
+    Sample Description:
+    ## What does this PR do?
+    Adds initial unit tests in `tests/test_dijkstra.py` to verify that our base Dijkstra implementation accurately calculates distances and handles edge cases across sample Batangas nodes.
+
+    ## Key Changes
+    - Added test graph setup with sample nodes (Lipa, Tanauan, Batangas City, Santo Tomas).
+    - Added `test_shortest_path_direct_and_multi_hop()` to verify route selection.
+    - Added `test_unreachable_destination()` to ensure `float('inf')` and an empty path are returned cleanly.
+
+    ## How to Test
+    1. Pull this branch: `git checkout test/dijkstra-routing`
+    2. Run the test suite from the root directory:
+    ```bash
+    python -m unittest tests/test_dijkstra.py
+
+
+6. Once a teammate reviews your PR and clicks **Merge pull request**:
+
+Click **Delete branch** on GitHub (keeps your repo tidy).
+Back in your local terminal, switch back to `main` and pull the merged changes so you're ready for your next feature:
+   ```bash
+   git checkout main
+   git pull origin main
+   git branch -d test/dijkstra-routing
