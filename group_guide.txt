@@ -29,8 +29,8 @@ SAMPLE COMMANDS
 git status
 git add .
 git commit -m "Descriptive message"
-git checkout -b feature/backend-dijkstra
-git push origin feature/backend-dijkstra
+git checkout -b feature/backend-dijkstra        OR      skip
+git push origin feature/backend-dijkstra        OR      ...main
 
 
 ====================
@@ -38,8 +38,8 @@ VIRTUAL ENVIRONMENTS
 ====================
 
 # For installing stuff:
-python -m venv venv
-venv\Scripts\activate.bat    OR    venv\Scripts\Activate.ps1
+python -m venv kargograph
+kargograph\Scripts\activate.bat    OR    venv\Scripts\Activate.ps1
 pip install pyvis
 pip freeze > requirements.txt
 
@@ -48,8 +48,9 @@ pip freeze > requirements.txt
 cd KargoGraph
 
 2. Create their own local virtual environment
-python -m venv venv
-source venv/bin/activate  # (or venv\Scripts\activate on Windows)
+python -m venv kargograph
+source kargograph/bin/activate  # (or venv\Scripts\activate on Windows)
+kargograph\Scripts\Activate.ps1
 
 3. Install everything listed in your requirements.txt
 pip install -r requirements.txt
@@ -70,8 +71,8 @@ git pull origin main
 2. Create and switch to your feature branch:
 Give it a descriptive name related to what you're building.
 
-git checkout -b test/dijkstra_routing
-
+git checkout -b backend/basic_dijkstra
+git branch --show-current
 
 3. Regularly make commits as you code the work
 
