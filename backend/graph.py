@@ -1,6 +1,6 @@
 import json
 from pyvis.network import Network
-# JSON is a way to store 
+# JSON is a way to store a dictionary into a file
 # Pyvis is a Python library dedicated to visualizing data structures such as graphs  |  https://pyvis.readthedocs.io/en/latest/tutorial.html#getting-started
 
 
@@ -9,9 +9,14 @@ from pyvis.network import Network
 # -----------------------
 
 # Helper functions validate user input before passing it to Pyvis
-def add_location(node_id:int, place:str):
+def add_location(node_id:int, place:str, x_loc:float = None, y_loc:float = None):
     """Adds a new location on the map as a node on the graph. def add_location(id:int, place:str, x_loc:float = None, y_loc:float = None):"""
-    graph.add_node(node_id, label=place)
+    graph.add_node(
+        node_id,
+        label = place,
+        x = x_loc,
+        y = y_loc,
+    )
 
 def add_road(node_a, node_b, distance):
     """Denotes the distance between two locations as an edge"""    
@@ -47,32 +52,21 @@ with open("./data/test_data.json", "r", encoding="utf-8") as file:
 print("Loading data!")
 
 for key, value in data.items():
-    # Add a location (node_id, place)
+    # Add a location (node_id, place). Keys must be added first to prevent errors for values.
     key = int(key)
-    add_location(key, value["place"])
+    scale = 100
+    add_location(key, value['place'][0], value['place'][1]*scale, value['place'][2]*scale*-1)
 
 for key, value in data.items():
     # Add a road (node_a, node_b, distance) --> raises AssertionError: non existent node '2'
     key = int(key)
     for i in value["neighbors"]:
-        add_road(key, i[0], i[1])
+        add_road(key, i[0], i[1], )
 
-print("Data loaded successfuly!")
+print("Data loaded successfully!")
 
-
-"""
-node_id = graph
-node_data = zip(node_ids, locations)
-
-start_ids = graph_data['Node A']
-end_ids = graph_data['Node B']
-lengths = graph_data['Distance']
-edge_data = zip(starts, ends, lengths)
-
-for edge in edge_data:
-    start = edge[0]
-    end = edge[1]
-    length = edge[2]
-
-    graph.add_node(start, start)
-"""
+# Generate and save the interactive HTML file
+# notebook=False tells Pyvis you are running this as a regular Python script, not in a Jupyter Notebook
+graph.toggle_physics(False)
+graph.show("kargograph_map.html", notebook=False)
+print("Graph exported to kargograph_map.html! Open this file in your web browser.")
