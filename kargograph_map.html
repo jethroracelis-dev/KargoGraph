@@ -89,7 +89,7 @@
 
                   // parsing and collecting nodes and edges from the python
                   nodes = new vis.DataSet([{"color": "#97c2fc", "font": {"color": "white"}, "id": 1, "label": "A", "shape": "dot", "x": -350.0, "y": -150.0}, {"color": "#97c2fc", "font": {"color": "white"}, "id": 2, "label": "B", "shape": "dot", "x": -150.0, "y": -350.0}, {"color": "#97c2fc", "font": {"color": "white"}, "id": 3, "label": "C", "shape": "dot", "x": -150.0, "y": 50.0}, {"color": "#97c2fc", "font": {"color": "white"}, "id": 4, "label": "D", "shape": "dot", "x": -350.0, "y": 250.0}, {"color": "#97c2fc", "font": {"color": "white"}, "id": 5, "label": "E", "shape": "dot", "x": 250.0, "y": -350.0}, {"color": "#97c2fc", "font": {"color": "white"}, "id": 6, "label": "F", "shape": "dot", "x": 50.0, "y": 250.0}, {"color": "#97c2fc", "font": {"color": "white"}, "id": 7, "label": "G", "shape": "dot", "x": -150.0, "y": 450.0}, {"color": "#97c2fc", "font": {"color": "white"}, "id": 8, "label": "H", "shape": "dot", "x": 250.0, "y": 50.0}, {"color": "#97c2fc", "font": {"color": "white"}, "id": 9, "label": "I", "shape": "dot", "x": 450.0, "y": -150.0}]);
-                  edges = new vis.DataSet([{"from": 1, "length": 2, "to": 2}, {"from": 1, "length": 5, "to": 3}, {"from": 1, "length": 2, "to": 4}, {"from": 2, "length": 3, "to": 3}, {"from": 2, "length": 1, "to": 5}, {"from": 3, "length": 3, "to": 4}, {"from": 3, "length": 1, "to": 6}, {"from": 4, "length": 2, "to": 7}, {"from": 5, "length": 1, "to": 3}, {"from": 5, "length": 7, "to": 9}, {"from": 6, "length": 2, "to": 7}, {"from": 6, "length": 3, "to": 8}, {"from": 8, "length": 1, "to": 3}, {"from": 8, "length": 1, "to": 9}]);
+                  edges = new vis.DataSet([{"from": 1, "label": "2.0", "to": 2}, {"from": 1, "label": "5.0", "to": 3}, {"from": 1, "label": "2.0", "to": 4}, {"from": 2, "label": "3.0", "to": 3}, {"from": 2, "label": "1.0", "to": 5}, {"from": 3, "label": "3.0", "to": 4}, {"from": 3, "label": "1.0", "to": 6}, {"from": 4, "label": "2.0", "to": 7}, {"from": 5, "label": "1.0", "to": 3}, {"from": 5, "label": "7.0", "to": 9}, {"from": 6, "label": "2.0", "to": 7}, {"from": 6, "label": "3.0", "to": 8}, {"from": 8, "label": "1.0", "to": 3}, {"from": 8, "label": "1.0", "to": 9}]);
 
                   nodeColors = {};
                   allNodes = nodes.get({ returnType: "Object" });
@@ -127,7 +127,7 @@
             "springConstant": 0.001,
             "springLength": 250
         },
-        "enabled": true,
+        "enabled": false,
         "stabilization": {
             "enabled": true,
             "fit": true,

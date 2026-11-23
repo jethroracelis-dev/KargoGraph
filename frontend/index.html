@@ -1,0 +1,1408 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KargoGraph - Fuel-Efficient Logistics Route Optimizer</title>
+
+  <!-- Tailwind CSS CDN -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            brand: {
+              50: '#f0f5fa',
+              100: '#e1ecf6',
+              200: '#c3daee',
+              300: '#95c0e2',
+              400: '#60a0d2',
+              500: '#3b83c2',
+              600: '#2768a7',
+              700: '#1e5287',
+              800: '#1b4570',
+              900: '#0c2340', // Reference Dark Navy
+              950: '#061324',
+            },
+            accent: {
+              cyan: '#0284c7',
+              sky: '#38bdf8',
+            }
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', '-apple-system', 'Segoe UI', 'Roboto', 'sans-serif'],
+            heading: ['Montserrat', 'Impact', 'Arial Black', 'sans-serif'],
+          }
+        }
+      }
+    }
+  </script>
+
+  <!-- Vis Network Stylesheet & Script (Local with CDN fallback) -->
+  <link rel="stylesheet" href="/lib/vis-9.1.2/vis-network.css" onerror="this.onerror=null;this.href='https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/dist/vis-network.min.css';">
+  <script src="/lib/vis-9.1.2/vis-network.min.js" onerror="this.onerror=null;this.src='https://cdnjs.cloudflare.com/ajax/libs/vis-network/9.1.2/dist/vis-network.min.js';"></script>
+
+  <!-- Tom Select for Searchable/Typeable Dropdowns (Local with CDN fallback) -->
+  <link rel="stylesheet" href="/lib/tom-select/tom-select.css" onerror="this.onerror=null;this.href='https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/css/tom-select.css';">
+  <script src="/lib/tom-select/tom-select.complete.min.js" onerror="this.onerror=null;this.src='https://cdn.jsdelivr.net/npm/tom-select@2.2.2/dist/js/tom-select.complete.min.js';"></script>
+
+  <style>
+    /* Custom presentation styling inspired by Group 5 reference */
+    .brand-title {
+      font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+      letter-spacing: -0.04em;
+    }
+
+    .skewed-tag {
+      transform: skewX(-12deg);
+    }
+    .skewed-tag > span {
+      transform: skewX(12deg);
+      display: inline-block;
+    }
+
+    /* Custom geometric diamond shapes in the background */
+    .geo-tile {
+      transform: rotate(45deg);
+      transition: all 0.3s ease;
+    }
+
+    /* Network container styling */
+    #network-canvas {
+      width: 100%;
+      height: 100%;
+      outline: none;
+      background: radial-gradient(circle at 50% 50%, #ffffff 0%, #f8fafc 100%);
+    }
+
+    /* Custom Tom Select styling aligned with Tailwind */
+    .ts-wrapper.single .ts-control {
+      border-radius: 0.5rem;
+      border: 1px solid #cbd5e1;
+      padding: 0.375rem 0.625rem;
+      font-size: 0.75rem;
+      font-weight: 600;
+      color: #1e293b;
+      background-color: #ffffff;
+      box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.05);
+      cursor: pointer;
+      min-height: 32px;
+      display: flex;
+      align-items: center;
+    }
+    .ts-wrapper.single .ts-control input {
+      font-size: 0.75rem;
+      font-weight: 500;
+    }
+    .start-ts .ts-control.focus {
+      border-color: #10b981 !important;
+      box-shadow: 0 0 0 2px rgba(16, 185, 129, 0.25) !important;
+    }
+    .dest-ts .ts-control.focus {
+      border-color: #ef4444 !important;
+      box-shadow: 0 0 0 2px rgba(239, 68, 68, 0.25) !important;
+    }
+    .ts-dropdown {
+      border-radius: 0.5rem;
+      border: 1px solid #e2e8f0;
+      box-shadow: 0 10px 15px -3px rgba(0, 0, 0, 0.1), 0 4px 6px -4px rgba(0, 0, 0, 0.1);
+      z-index: 60;
+      font-size: 0.75rem;
+      max-height: 220px;
+      overflow-y: auto;
+    }
+    .ts-dropdown .option {
+      padding: 6px 10px;
+    }
+    .ts-dropdown .option.active {
+      background-color: #f1f5f9;
+      color: #0c2340;
+    }
+    .ts-dropdown .option.selected {
+      background-color: #e0f2fe;
+      color: #0369a1;
+      font-weight: 700;
+    }
+
+    /* Custom subtle scrollbar */
+    ::-webkit-scrollbar {
+      width: 6px;
+      height: 6px;
+    }
+    ::-webkit-scrollbar-track {
+      background: #f1f5f9;
+    }
+    ::-webkit-scrollbar-thumb {
+      background: #cbd5e1;
+      border-radius: 9999px;
+    }
+    ::-webkit-scrollbar-thumb:hover {
+      background: #94a3b8;
+    }
+  </style>
+</head>
+
+<body class="bg-slate-100 text-slate-800 min-h-screen flex flex-col font-sans selection:bg-brand-900 selection:text-white">
+
+  <!-- ================= TOP HEADER BAR ================= -->
+  <header class="bg-white border-b border-slate-200 sticky top-0 z-30 shadow-sm">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+      
+      <!-- Group & Course Info -->
+      <div class="flex items-center space-x-3">
+        <!-- Delivery Truck Vector Icon with Speed Lines -->
+        <div class="flex items-center text-brand-900">
+          <svg class="w-8 h-8 mr-2 text-brand-900" viewBox="0 0 24 24" fill="currentColor">
+            <!-- Speed Motion Trails -->
+            <path d="M2 7h5v2H2V7zm-1 4h6v2H1v-2zm3 4h4v2H4v-2z" opacity="0.75"/>
+            <!-- Truck Cab & Cargo -->
+            <path d="M9 5h7c.55 0 1 .45 1 1v2h2.5c.38 0 .73.22.89.55l2 4c.07.14.11.3.11.45V16c0 .55-.45 1-1 1h-1.18c-.41 1.16-1.52 2-2.82 2s-2.41-.84-2.82-2H13.82c-.41 1.16-1.52 2-2.82 2s-2.41-.84-2.82-2H8c-.55 0-1-.45-1-1V6c0-.55.45-1 1-1h1zm8.5 4V7H9v8h.18c.41-1.16 1.52-2 2.82-2s2.41.84 2.82 2h1.36c.41-1.16 1.52-2 2.82-2s2.41.84 2.82 2h.5v-2.5l-1.6-3.2A1 1 0 0 0 20 11h-2.5zm-5.5 8c.83 0 1.5-.67 1.5-1.5S12.83 14 12 14s-1.5.67-1.5 1.5.67 1.5 1.5 1.5zm6.5 0c.83 0 1.5-.67 1.5-1.5s-.67-1.5-1.5-1.5-1.5.67-1.5 1.5.67 1.5 1.5 1.5z"/>
+          </svg>
+          <div class="leading-none">
+            <span class="text-xs font-black tracking-widest text-brand-900 uppercase">CPE 3104 | GROUP 5</span>
+            <span class="block text-[10px] text-slate-500 font-medium">Final Course Project</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Center Logo / Brand -->
+      <div class="hidden md:flex items-center space-x-2">
+        <h1 class="brand-title text-2xl font-black tracking-tight text-brand-900 uppercase">
+          KARGO<span class="text-sky-600 ml-0.5">GRAPH</span>
+        </h1>
+        <span class="text-xs bg-brand-50 text-brand-900 border border-brand-200 px-2.5 py-0.5 rounded-full font-semibold">
+          DSA Route Optimizer
+        </span>
+      </div>
+
+      <!-- Authors Badge (Ayap | Lastimozo | Racelis) -->
+      <div class="flex items-center space-x-2">
+        <div class="skewed-tag bg-brand-900 text-white px-3.5 py-1.5 rounded shadow-sm hover:bg-brand-800 transition-colors">
+          <span class="text-xs font-bold tracking-wider uppercase">AYAP | LASTIMOZO | RACELIS</span>
+        </div>
+      </div>
+
+    </div>
+  </header>
+
+  <!-- ================= MAIN CONTENT ================= -->
+  <!-- On vertical screens (1 col), Interactive Logistics Network displays FIRST! -->
+  <!-- On horizontal layout (lg), Interactive Logistics Network is on the left (col-span-7), and controls are on the right (col-span-5) -->
+  <main class="flex-1 max-w-7xl w-full mx-auto p-4 sm:p-6 lg:p-8">
+    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-start">
+      
+      <!-- ================= 1. DEDICATED GRAPH CONTAINER (DISPLAYS FIRST ON VERTICAL SCREENS) ================= -->
+      <section class="lg:col-span-7 xl:col-span-8 flex flex-col lg:sticky lg:top-20 z-10">
+        <div class="bg-white rounded-2xl shadow-sm border border-slate-200 overflow-hidden flex flex-col h-[60vh] min-h-[480px] lg:h-[calc(100vh-6.5rem)] lg:min-h-[700px] relative">
+          
+          <!-- Graph Container Toolbar -->
+          <div class="bg-slate-50 border-b border-slate-200 px-4 py-3 flex flex-wrap items-center justify-between gap-2.5">
+            
+            <div class="flex items-center space-x-2">
+              <div class="w-3 h-3 rounded-full bg-brand-900"></div>
+              <h3 class="text-sm font-bold text-brand-900 uppercase tracking-wide">Interactive Logistics Network</h3>
+              <span id="locations-count-badge" class="text-[11px] font-semibold text-slate-500 bg-white border border-slate-200 px-2 py-0.5 rounded-full">
+                9 Locations
+              </span>
+            </div>
+
+            <!-- Map Control Actions -->
+            <div class="flex items-center space-x-2">
+              
+              <!-- 1. DISPLAY LABELS TOGGLE BUTTON (User requirement) -->
+              <button id="toggle-labels-btn" onclick="toggleLabels()" title="Show or hide place names on nodes and distances on roads"
+                class="text-xs bg-brand-50 text-brand-900 border-brand-300 font-semibold px-2.5 py-1.5 rounded-lg border shadow-sm hover:bg-brand-100 transition-all duration-150 cursor-pointer flex items-center gap-1.5 active:scale-95">
+                <svg id="labels-icon" class="w-3.5 h-3.5" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M1 12s4-8 11-8 11 8 11 8-4 8-11 8-11-8-11-8z"/>
+                  <circle cx="12" cy="12" r="3"/>
+                </svg>
+                <span id="labels-btn-text">Labels: ON</span>
+              </button>
+
+              <!-- 2. FIT MAP BUTTON (Stretches and centers the full network with proper padding) -->
+              <button onclick="fitNetwork(true)" title="Center and fit all nodes into view"
+                class="text-xs bg-white hover:bg-slate-100 text-slate-700 font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 shadow-sm transition-all duration-150 cursor-pointer flex items-center gap-1.5 active:scale-95">
+                <svg class="w-3.5 h-3.5 text-slate-600" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/>
+                </svg>
+                <span>Fit Map</span>
+              </button>
+
+              <!-- 3. FIXED COORDS / PHYSICS TOGGLE -->
+              <button id="physics-toggle-btn" onclick="togglePhysics()" title="Toggle node physics animation"
+                class="text-xs bg-white hover:bg-slate-100 text-slate-700 font-semibold px-2.5 py-1.5 rounded-lg border border-slate-300 shadow-sm transition-all duration-150 cursor-pointer flex items-center gap-1.5 active:scale-95">
+                <span class="w-1.5 h-1.5 rounded-full bg-slate-400" id="physics-indicator"></span>
+                <span>Fixed Coords</span>
+              </button>
+
+            </div>
+
+          </div>
+
+          <!-- Interactive Legend Pill Bar -->
+          <div class="bg-brand-900/5 border-b border-slate-100 px-4 py-2 flex flex-wrap items-center justify-between text-xs text-slate-600 gap-2">
+            <div class="flex items-center space-x-3 sm:space-x-4">
+              <span class="flex items-center gap-1.5">
+                <span class="w-3 h-3 rounded-full bg-emerald-500 inline-block border-2 border-white shadow-sm"></span>
+                <span class="font-medium text-slate-700">Start Stop</span>
+              </span>
+              <span class="flex items-center gap-1.5">
+                <span class="w-3 h-3 rounded-full bg-rose-500 inline-block border-2 border-white shadow-sm"></span>
+                <span class="font-medium text-slate-700">Destination</span>
+              </span>
+              <span class="flex items-center gap-1.5">
+                <span class="w-3 h-3 rounded-full bg-sky-500 inline-block border-2 border-white shadow-sm"></span>
+                <span class="font-medium text-slate-700">Shortest Route</span>
+              </span>
+              <span class="flex items-center gap-1.5">
+                <span class="w-3 h-3 rounded-full bg-brand-900 inline-block border-2 border-white shadow-sm"></span>
+                <span class="font-medium text-slate-700">Other Stops</span>
+              </span>
+            </div>
+
+            <div class="text-[11px] font-semibold text-slate-500">
+              💡 Click any node on map or type in dropdowns below
+            </div>
+          </div>
+
+          <!-- Network Canvas Area (Fills entire available height with no wasted space) -->
+          <div class="flex-1 relative w-full h-full min-h-0 overflow-hidden">
+            <div id="network-canvas"></div>
+
+            <!-- Floating Mode Indicator Overlay -->
+            <div id="canvas-hint" class="absolute bottom-4 left-4 bg-white/95 backdrop-blur-sm border border-slate-200 text-slate-700 text-xs px-3.5 py-1.5 rounded-lg shadow-md pointer-events-none transition-opacity duration-300">
+              <span id="hint-text">👉 Currently selecting: <strong class="text-emerald-700">Starting Point</strong> (Click node on map)</span>
+            </div>
+          </div>
+
+        </div>
+      </section>
+
+      <!-- ================= 2. CONTROLS & ROUTE DETAILS (DISPLAYS SECOND ON VERTICAL SCREENS) ================= -->
+      <section class="lg:col-span-5 xl:col-span-4 flex flex-col space-y-5">
+        
+        <!-- Brand Header Card with Geometric Navy Accents -->
+        <div class="relative overflow-hidden bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+          <!-- Geometric Decorative Accents (Reference Image Slide Motif) -->
+          <div class="absolute -top-6 -right-6 w-24 h-24 bg-brand-900/10 geo-tile rounded-2xl pointer-events-none"></div>
+          <div class="absolute -top-3 -right-3 w-16 h-16 bg-brand-900/15 geo-tile rounded-xl pointer-events-none"></div>
+          <div class="absolute top-8 -right-2 w-8 h-8 bg-sky-500/20 geo-tile rounded-lg pointer-events-none"></div>
+
+          <div class="relative z-10">
+            <h2 class="brand-title text-3xl font-black text-brand-900 tracking-tight leading-none uppercase">
+              KARGO<span class="text-sky-600 ml-1">GRAPH</span>
+            </h2>
+            <p class="text-xs font-semibold text-slate-500 tracking-wider uppercase mt-1">
+              Fuel-Efficient Logistics Route Planner
+            </p>
+            <p class="text-xs text-slate-600 mt-2 leading-relaxed">
+              Find the most fuel-efficient route between logistics hubs using Dijkstra’s Shortest Path Algorithm on undirected weighted graphs.
+            </p>
+          </div>
+        </div>
+
+        <!-- ================= ROUTE SELECTION CARD ================= -->
+        <div class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200">
+          
+          <div class="flex items-center justify-between pb-3 mb-4 border-b border-slate-100">
+            <div>
+              <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wide">Route Selection</h3>
+              <p class="text-xs text-slate-500">Type in dropdowns or click graph nodes</p>
+            </div>
+            
+            <!-- Quick Selection Mode Switcher -->
+            <div class="flex items-center p-1 bg-slate-100 rounded-lg text-xs font-semibold">
+              <button id="mode-start-btn" onclick="setSelectMode('start')" 
+                class="px-2.5 py-1 rounded-md transition-all duration-150 bg-emerald-600 text-white shadow-sm flex items-center gap-1.5 cursor-pointer">
+                <span class="w-2 h-2 rounded-full bg-white animate-pulse"></span>
+                <span>Start</span>
+              </button>
+              <button id="mode-dest-btn" onclick="setSelectMode('dest')" 
+                class="px-2.5 py-1 rounded-md transition-all duration-150 text-slate-600 hover:text-slate-900 flex items-center gap-1.5 cursor-pointer">
+                <span class="w-2 h-2 rounded-full bg-rose-500"></span>
+                <span>Destination</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Stops Inputs Container -->
+          <div class="space-y-3 relative">
+
+            <!-- 1. START LOCATION CARD -->
+            <div id="start-card" class="relative group p-3.5 rounded-xl border-2 border-emerald-500 bg-emerald-50/40 transition-all duration-200">
+              <div class="flex flex-col space-y-2">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <div class="w-6 h-6 rounded-lg bg-emerald-500 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+                      A
+                    </div>
+                    <div>
+                      <span class="text-[11px] font-bold text-emerald-800 uppercase tracking-wider block leading-tight">Starting Point</span>
+                      <span id="start-display" class="text-xs font-bold text-slate-800">
+                        None Selected (Type or Click Map)
+                      </span>
+                    </div>
+                  </div>
+
+                  <button onclick="clearStop('start')" title="Clear Start"
+                    class="w-6 h-6 rounded-md text-slate-400 hover:text-rose-600 hover:bg-slate-100 flex items-center justify-center transition-colors">
+                    &times;
+                  </button>
+                </div>
+
+                <!-- Searchable Type-ahead Combobox (Tom Select) -->
+                <div class="start-ts w-full">
+                  <select id="start-select" placeholder="Type to search stop (e.g. SM City, Stop A)..."></select>
+                </div>
+              </div>
+
+              <div id="start-meta" class="mt-2 pt-2 border-t border-emerald-200/60 flex items-center justify-between text-[11px] text-slate-500">
+                <span>Coord: <strong class="text-slate-700" id="start-coord">--</strong></span>
+                <span id="start-connections">--</span>
+              </div>
+            </div>
+
+            <!-- SWAP BUTTON WITH ROTATE HOVER -->
+            <div class="flex justify-center -my-2 relative z-10">
+              <button onclick="swapStops()" title="Swap Start & Destination"
+                class="w-8 h-8 rounded-full bg-white border border-slate-300 shadow-sm text-slate-600 hover:text-brand-900 hover:border-brand-900 hover:shadow-md hover:scale-105 active:scale-95 transition-all duration-150 flex items-center justify-center cursor-pointer group">
+                <svg class="w-4 h-4 transition-transform duration-200 group-hover:rotate-180" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                  <path d="M7 16V4M7 4L3 8M7 4L11 8M17 8v12M17 20l4-4M17 20l-4-4"/>
+                </svg>
+              </button>
+            </div>
+
+            <!-- 2. DESTINATION LOCATION CARD -->
+            <div id="dest-card" class="relative group p-3.5 rounded-xl border border-slate-200 bg-slate-50/50 hover:bg-slate-50 transition-all duration-200">
+              <div class="flex flex-col space-y-2">
+                <div class="flex items-center justify-between">
+                  <div class="flex items-center space-x-2">
+                    <div class="w-6 h-6 rounded-lg bg-rose-500 text-white flex items-center justify-center font-bold text-xs shadow-sm">
+                      B
+                    </div>
+                    <div>
+                      <span class="text-[11px] font-bold text-rose-800 uppercase tracking-wider block leading-tight">Destination</span>
+                      <span id="dest-display" class="text-xs font-bold text-slate-800">
+                        None Selected (Type or Click Map)
+                      </span>
+                    </div>
+                  </div>
+
+                  <button onclick="clearStop('dest')" title="Clear Destination"
+                    class="w-6 h-6 rounded-md text-slate-400 hover:text-rose-600 hover:bg-slate-100 flex items-center justify-center transition-colors">
+                    &times;
+                  </button>
+                </div>
+
+                <!-- Searchable Type-ahead Combobox (Tom Select) -->
+                <div class="dest-ts w-full">
+                  <select id="dest-select" placeholder="Type to search stop (e.g. SM City, Stop I)..."></select>
+                </div>
+              </div>
+
+              <div id="dest-meta" class="mt-2 pt-2 border-t border-slate-200/60 flex items-center justify-between text-[11px] text-slate-500">
+                <span>Coord: <strong class="text-slate-700" id="dest-coord">--</strong></span>
+                <span id="dest-connections">--</span>
+              </div>
+            </div>
+
+          </div>
+
+          <!-- ACTION BUTTONS WITH TAILWIND HOVERS -->
+          <div class="mt-5 space-y-2.5">
+            <!-- Main "Route" Button -->
+            <button id="route-btn" onclick="calculateRoute()" 
+              class="w-full py-3.5 px-6 rounded-xl bg-brand-900 hover:bg-brand-800 active:scale-[0.98] text-white font-bold text-sm shadow-md hover:shadow-xl hover:shadow-brand-900/25 transition-all duration-200 flex items-center justify-center space-x-2.5 cursor-pointer group">
+              <!-- Animated Truck Icon -->
+              <svg class="w-5 h-5 text-sky-400 group-hover:translate-x-1 transition-transform duration-200" viewBox="0 0 24 24" fill="currentColor">
+                <path d="M20 8h-3V4H3c-1.1 0-2 .9-2 2v11h2c0 1.66 1.34 3 3 3s3-1.34 3-3h6c0 1.66 1.34 3 3 3s3-1.34 3-3h2v-5l-3-4zM6 18.5c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5zm13.5-9l1.96 2.5H17V9.5h2.5zm-1.5 9c-.83 0-1.5-.67-1.5-1.5s.67-1.5 1.5-1.5 1.5.67 1.5 1.5-.67 1.5-1.5 1.5z"/>
+              </svg>
+              <span id="route-btn-text">Find Shortest Route</span>
+              <span class="text-xs bg-brand-800 text-sky-300 px-2 py-0.5 rounded font-mono">Dijkstra</span>
+            </button>
+
+            <!-- Reset / Clear Button -->
+            <button onclick="resetAll()" 
+              class="w-full py-2.5 px-4 rounded-xl border border-slate-300 hover:bg-slate-100 hover:border-slate-400 text-slate-700 font-semibold text-xs transition-all duration-150 flex items-center justify-center space-x-1.5 cursor-pointer">
+              <svg class="w-3.5 h-3.5 text-slate-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                <path d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"/>
+              </svg>
+              <span>Reset Selection</span>
+            </button>
+          </div>
+
+        </div>
+
+        <!-- ================= 3. ROUTE RESULTS CARD (DISPLAYS THIRD ON VERTICAL SCREENS) ================= -->
+        <div id="results-card" class="bg-white rounded-2xl p-5 shadow-sm border border-slate-200 transition-all duration-300">
+          
+          <div class="flex items-center justify-between pb-3 border-b border-slate-100">
+            <div class="flex items-center space-x-2">
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500 animate-ping"></span>
+              <h3 class="text-sm font-bold text-slate-800 uppercase tracking-wide">Route Itinerary</h3>
+            </div>
+            <span class="text-[11px] font-bold text-brand-900 bg-brand-50 border border-brand-200 px-2 py-0.5 rounded">
+              Dijkstra Optimal
+            </span>
+          </div>
+
+          <!-- Total Distance & Fuel Stats -->
+          <div class="grid grid-cols-2 gap-3 mt-4">
+            <!-- Distance Metric -->
+            <div class="p-3 bg-brand-50/70 border border-brand-100 rounded-xl">
+              <span class="text-[10px] font-bold text-brand-800 uppercase tracking-wider block">Total Distance</span>
+              <div class="flex items-baseline space-x-1 mt-0.5">
+                <span id="res-distance" class="text-2xl font-black text-brand-900">--</span>
+                <span class="text-xs font-bold text-slate-600">km</span>
+              </div>
+              <span class="text-[10px] text-slate-500 font-semibold">Shortest available path</span>
+            </div>
+
+            <!-- Fuel Efficiency Metric -->
+            <div class="p-3 bg-sky-50/70 border border-sky-100 rounded-xl">
+              <span class="text-[10px] font-bold text-sky-900 uppercase tracking-wider block">Est. Fuel Consumption</span>
+              <div class="flex items-baseline space-x-1 mt-0.5">
+                <span id="res-fuel" class="text-2xl font-black text-sky-900">--</span>
+                <span class="text-xs font-bold text-slate-600">Liters</span>
+              </div>
+              <span id="res-cost" class="text-[10px] text-slate-600 font-medium">Est. -- diesel</span>
+            </div>
+          </div>
+
+          <!-- Path Breadcrumbs / Timeline -->
+          <div class="mt-4">
+            <div class="flex items-center justify-between text-xs font-semibold text-slate-700 mb-2">
+              <span>Step-by-Step Waypoints:</span>
+              <span id="res-hops-count" class="text-[11px] text-slate-500">0 Stops (0 Legs)</span>
+            </div>
+
+            <div id="timeline-container" class="space-y-1.5 max-h-64 overflow-y-auto pr-1">
+              <div class="p-4 text-center text-xs text-slate-500 bg-slate-50 border border-slate-200/60 rounded-xl">
+                <p class="font-bold text-slate-700">No route selected</p>
+                <p class="text-[11px] text-slate-500 mt-1">Select a starting point and destination above, then click "Find Shortest Route".</p>
+              </div>
+            </div>
+          </div>
+
+        </div>
+
+      </section>
+
+    </div>
+  </main>
+
+  <!-- ================= FOOTER ================= -->
+  <footer class="bg-white border-t border-slate-200 mt-auto py-4">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between text-xs text-slate-500 gap-2">
+      <div class="flex items-center space-x-2">
+        <span class="font-bold text-brand-900">KargoGraph</span>
+        <span>•</span>
+        <span>CPE 3104 Data Structures & Algorithms Final Project</span>
+      </div>
+      <div class="font-medium">
+        Developed by <span class="font-bold text-slate-700">Ayap | Lastimozo | Racelis</span>
+      </div>
+    </div>
+  </footer>
+
+  <!-- ================= APPLICATION LOGIC ================= -->
+  <script>
+    // Embedded copy of test_data.json as resilient fallback
+    const FALLBACK_DATA = {
+      "1": { "place": ["A", -3.5, 1.5], "neighbors": [[2, 2], [3, 5], [4, 2]] },
+      "2": { "place": ["B", -1.5, 3.5], "neighbors": [[1, 2], [3, 3], [5, 1]] },
+      "3": { "place": ["C", -1.5, -0.5], "neighbors": [[1, 5], [2, 3], [4, 3], [6, 1]] },
+      "4": { "place": ["D", -3.5, -2.5], "neighbors": [[1, 2], [3, 3], [7, 2]] },
+      "5": { "place": ["E", 2.5, 3.5], "neighbors": [[2, 1], [3, 1], [9, 7]] },
+      "6": { "place": ["F", 0.5, -2.5], "neighbors": [[3, 1], [7, 2], [8, 3]] },
+      "7": { "place": ["G", -1.5, -4.5], "neighbors": [[4, 2], [6, 2]] },
+      "8": { "place": ["H", 2.5, -0.5], "neighbors": [[3, 1], [6, 3], [9, 1]] },
+      "9": { "place": ["I", 4.5, 1.5], "neighbors": [[5, 7], [8, 1]] }
+    };
+
+    // State
+    let network = null;
+    let visNodes = null;
+    let visEdges = null;
+    let graphData = null;
+    let rawLocations = {};
+    let edgeDistances = {}; // Persistent edge distance lookup: edgeId -> distance
+
+    let selectedStart = null;
+    let selectedDest = null;
+    let currentSelectMode = 'start'; // 'start' or 'dest'
+    let currentRoutePath = [];
+    let physicsEnabled = false;
+    let labelsVisible = true; // Display labels state (default ON)
+
+    // Tom Select Instances
+    let tomSelectStart = null;
+    let tomSelectDest = null;
+
+    // Standard Color Palette
+    const COLORS = {
+      defaultNode: {
+        background: '#0c2340',
+        border: '#1e3a8a',
+        highlight: { background: '#1e3a8a', border: '#0284c7' }
+      },
+      startNode: {
+        background: '#10b981', // Emerald
+        border: '#047857',
+        highlight: { background: '#059669', border: '#064e3b' }
+      },
+      destNode: {
+        background: '#ef4444', // Rose Red
+        border: '#b91c1c',
+        highlight: { background: '#dc2626', border: '#7f1d1d' }
+      },
+      pathNode: {
+        background: '#0284c7', // Sky Cyan
+        border: '#0369a1',
+        highlight: { background: '#0ea5e9', border: '#075985' }
+      },
+      defaultEdge: {
+        color: '#94a3b8',
+        highlight: '#64748b'
+      },
+      pathEdge: {
+        color: '#0284c7',
+        highlight: '#0ea5e9'
+      }
+    };
+
+    // Initialize application
+    async function initApp() {
+      await loadGraph();
+      initTomSelect();
+      updateUI();
+      resetResultsCard();
+      // Setup ResizeObserver for responsive full-height canvas
+      setupResizeObserver();
+    }
+
+    // Fetch graph data from backend API or use fallback
+    async function loadGraph() {
+      try {
+        const res = await fetch('/api/graph');
+        if (res.ok) {
+          const data = await res.json();
+          if (data && data.locations && Object.keys(data.locations).length > 0) {
+            graphData = data;
+            rawLocations = data.locations;
+            renderVisNetwork(data.nodes, data.edges);
+            return;
+          }
+        }
+      } catch (e) {
+        console.warn('Backend /api/graph unavailable, using embedded test data:', e);
+      }
+
+      // Fallback
+      parseFallbackData();
+    }
+
+    function parseFallbackData() {
+      const nodes = [];
+      const edges = [];
+      const seenEdges = new Set();
+      rawLocations = {};
+
+      for (const [key, val] of Object.entries(FALLBACK_DATA)) {
+        const id = parseInt(key);
+        const name = val.place[0];
+        const x = val.place[1];
+        const y = val.place[2];
+
+        rawLocations[id] = {
+          id: id,
+          place: name,
+          x: x,
+          y: y,
+          neighbors: val.neighbors
+        };
+
+        nodes.push({
+          id: id,
+          label: `Stop ${name}`,
+          place: name,
+          x: x * 100,
+          y: y * -100,
+          orig_x: x,
+          orig_y: y,
+          neighbors: val.neighbors
+        });
+
+        for (const nbr of val.neighbors) {
+          const nbrId = nbr[0];
+          const dist = nbr[1];
+          const edgeKey = [Math.min(id, nbrId), Math.max(id, nbrId)].join('-');
+          if (!seenEdges.has(edgeKey)) {
+            seenEdges.add(edgeKey);
+            edges.push({
+              from: id,
+              to: nbrId,
+              distance: dist,
+              label: `${dist} km`
+            });
+          }
+        }
+      }
+
+      graphData = { nodes, edges, locations: rawLocations };
+      renderVisNetwork(nodes, edges);
+    }
+
+    function renderVisNetwork(nodesArray, edgesArray) {
+      const container = document.getElementById('network-canvas');
+
+      // Update location count badge
+      const badge = document.getElementById('locations-count-badge');
+      if (badge) badge.textContent = `${nodesArray.length} Locations`;
+
+      const formattedNodes = nodesArray.map(n => ({
+        id: n.id,
+        label: labelsVisible ? `Stop ${n.place || n.id}` : '',
+        title: `Stop ${n.place || n.id} (Node ${n.id})\nCoordinates: (${n.orig_x}, ${n.orig_y})\nNeighbors: ${(n.neighbors || []).length} roads`,
+        x: n.x,
+        y: n.y,
+        shape: 'dot',
+        size: 26,
+        font: {
+          color: '#ffffff',
+          face: 'Inter, sans-serif',
+          size: 13,
+          strokeWidth: 3,
+          strokeColor: '#0c2340',
+          vadjust: 0
+        },
+        color: getNodeColor(n.id)
+      }));
+
+      edgeDistances = {};
+      const formattedEdges = edgesArray.map(e => {
+        const edgeId = `e-${e.from}-${e.to}`;
+        const distVal = (e.distance !== undefined && e.distance !== null) ? Number(e.distance) : (e.label ? parseFloat(e.label) : 0);
+        edgeDistances[edgeId] = distVal;
+        return {
+          id: edgeId,
+          from: e.from,
+          to: e.to,
+          distance: distVal,
+          label: labelsVisible ? `${distVal} km` : '',
+          title: `Distance: ${distVal} km`,
+          font: {
+            color: '#334155',
+            size: labelsVisible ? 11 : 0,
+            align: 'middle',
+            background: '#ffffff',
+            strokeWidth: 0
+          },
+          color: { color: COLORS.defaultEdge.color, highlight: COLORS.defaultEdge.highlight },
+          width: 2,
+          smooth: { enabled: true, type: 'continuous', roundness: 0.1 }
+        };
+      });
+
+      visNodes = new vis.DataSet(formattedNodes);
+      visEdges = new vis.DataSet(formattedEdges);
+
+      const options = {
+        physics: {
+          enabled: false
+        },
+        interaction: {
+          hover: true,
+          dragNodes: true,
+          zoomView: true,
+          dragView: true,
+          navigationButtons: false
+        }
+      };
+
+      network = new vis.Network(container, { nodes: visNodes, edges: visEdges }, options);
+
+      // Handle Node Click
+      network.on('click', function(params) {
+        if (params.nodes.length > 0) {
+          const clickedNodeId = params.nodes[0];
+          handleNodeClick(clickedNodeId);
+        }
+      });
+
+      // Fit map cleanly after initial render
+      network.once('afterDrawing', function() {
+        setTimeout(() => fitNetwork(false), 80);
+      });
+    }
+
+    // Initialize Tom Select searchable comboboxes
+    function initTomSelect() {
+      const optionsList = [];
+      for (const [idStr, info] of Object.entries(rawLocations)) {
+        const id = parseInt(idStr);
+        optionsList.push({
+          value: id,
+          text: `Stop ${info.place}`,
+          subtext: `Node ${id}`,
+          coords: `${info.x}, ${info.y}`
+        });
+      }
+
+      const commonConfig = {
+        valueField: 'value',
+        labelField: 'text',
+        searchField: ['text', 'subtext'],
+        maxItems: 1,
+        options: optionsList,
+        create: false,
+        allowEmptyOption: true,
+        closeAfterSelect: true,
+        render: {
+          option: function(data, escape) {
+            return `<div class="flex items-center justify-between py-1 px-1">
+              <div>
+                <span class="font-bold text-slate-800">${escape(data.text)}</span>
+                ${data.subtext ? `<span class="text-xs text-slate-400 ml-1">(${escape(data.subtext)})</span>` : ''}
+              </div>
+              ${data.coords ? `<span class="text-[10px] font-mono text-slate-400">${escape(data.coords)}</span>` : ''}
+            </div>`;
+          },
+          item: function(data, escape) {
+            return `<div class="font-bold text-slate-800 text-xs">${escape(data.text)} <span class="text-slate-400 font-normal">(${escape(data.subtext)})</span></div>`;
+          }
+        }
+      };
+
+      if (window.TomSelect) {
+        // Destroy existing if re-initializing
+        if (tomSelectStart) tomSelectStart.destroy();
+        if (tomSelectDest) tomSelectDest.destroy();
+
+        tomSelectStart = new TomSelect('#start-select', {
+          ...commonConfig,
+          placeholder: 'Type start stop...',
+          onChange: function(val) {
+            if (val && parseInt(val) !== selectedStart) {
+              onSelectChange('start', val);
+            }
+          }
+        });
+
+        tomSelectDest = new TomSelect('#dest-select', {
+          ...commonConfig,
+          placeholder: 'Type destination stop...',
+          onChange: function(val) {
+            if (val && parseInt(val) !== selectedDest) {
+              onSelectChange('dest', val);
+            }
+          }
+        });
+
+        if (selectedStart) tomSelectStart.setValue(selectedStart, true);
+        if (selectedDest) tomSelectDest.setValue(selectedDest, true);
+      }
+    }
+
+    function getNodeColor(nodeId) {
+      if (nodeId === selectedStart) {
+        return {
+          background: COLORS.startNode.background,
+          border: COLORS.startNode.border,
+          highlight: COLORS.startNode.highlight
+        };
+      }
+      if (nodeId === selectedDest) {
+        return {
+          background: COLORS.destNode.background,
+          border: COLORS.destNode.border,
+          highlight: COLORS.destNode.highlight
+        };
+      }
+      if (currentRoutePath.includes(nodeId)) {
+        return {
+          background: COLORS.pathNode.background,
+          border: COLORS.pathNode.border,
+          highlight: COLORS.pathNode.highlight
+        };
+      }
+      return {
+        background: COLORS.defaultNode.background,
+        border: COLORS.defaultNode.border,
+        highlight: COLORS.defaultNode.highlight
+      };
+    }
+
+    function handleNodeClick(nodeId) {
+      if (currentSelectMode === 'start') {
+        selectedStart = nodeId;
+        if (tomSelectStart) tomSelectStart.setValue(nodeId, true);
+        if (selectedDest === nodeId) {
+          selectedDest = null;
+          if (tomSelectDest) tomSelectDest.clear(true);
+        }
+        setSelectMode('dest');
+      } else {
+        selectedDest = nodeId;
+        if (tomSelectDest) tomSelectDest.setValue(nodeId, true);
+        if (selectedStart === nodeId) {
+          selectedStart = null;
+          if (tomSelectStart) tomSelectStart.clear(true);
+        }
+        setSelectMode('start');
+      }
+
+      updateUI();
+      refreshGraphHighlights();
+    }
+
+    function setSelectMode(mode) {
+      currentSelectMode = mode;
+      const startBtn = document.getElementById('mode-start-btn');
+      const destBtn = document.getElementById('mode-dest-btn');
+      const startCard = document.getElementById('start-card');
+      const destCard = document.getElementById('dest-card');
+      const hintText = document.getElementById('hint-text');
+
+      if (mode === 'start') {
+        startBtn.className = "px-2.5 py-1 rounded-md transition-all duration-150 bg-emerald-600 text-white shadow-sm flex items-center gap-1.5 cursor-pointer";
+        destBtn.className = "px-2.5 py-1 rounded-md transition-all duration-150 text-slate-600 hover:text-slate-900 flex items-center gap-1.5 cursor-pointer";
+        startCard.classList.add('border-emerald-500', 'bg-emerald-50/40');
+        destCard.classList.remove('border-rose-500', 'bg-rose-50/40');
+        hintText.innerHTML = '👉 Currently selecting: <strong class="text-emerald-700">Starting Point</strong> (Click node on map)';
+      } else {
+        destBtn.className = "px-2.5 py-1 rounded-md transition-all duration-150 bg-rose-600 text-white shadow-sm flex items-center gap-1.5 cursor-pointer";
+        startBtn.className = "px-2.5 py-1 rounded-md transition-all duration-150 text-slate-600 hover:text-slate-900 flex items-center gap-1.5 cursor-pointer";
+        destCard.classList.add('border-rose-500', 'bg-rose-50/40');
+        startCard.classList.remove('border-emerald-500', 'bg-emerald-50/40');
+        hintText.innerHTML = '👉 Currently selecting: <strong class="text-rose-700">Destination</strong> (Click node on map)';
+      }
+    }
+
+    function onSelectChange(type, value) {
+      const id = parseInt(value);
+      if (type === 'start') {
+        selectedStart = id;
+        if (selectedDest === id) {
+          selectedDest = null;
+          if (tomSelectDest) tomSelectDest.clear(true);
+        }
+      } else {
+        selectedDest = id;
+        if (selectedStart === id) {
+          selectedStart = null;
+          if (tomSelectStart) tomSelectStart.clear(true);
+        }
+      }
+      updateUI();
+      refreshGraphHighlights();
+    }
+
+    function clearStop(type) {
+      if (type === 'start') {
+        selectedStart = null;
+        if (tomSelectStart) tomSelectStart.clear(true);
+        setSelectMode('start');
+      } else {
+        selectedDest = null;
+        if (tomSelectDest) tomSelectDest.clear(true);
+        setSelectMode('dest');
+      }
+      currentRoutePath = [];
+      updateUI();
+      refreshGraphHighlights();
+    }
+
+    function swapStops() {
+      const temp = selectedStart;
+      selectedStart = selectedDest;
+      selectedDest = temp;
+
+      if (tomSelectStart) {
+        if (selectedStart) tomSelectStart.setValue(selectedStart, true);
+        else tomSelectStart.clear(true);
+      }
+      if (tomSelectDest) {
+        if (selectedDest) tomSelectDest.setValue(selectedDest, true);
+        else tomSelectDest.clear(true);
+      }
+
+      updateUI();
+      refreshGraphHighlights();
+      if (selectedStart && selectedDest) {
+        calculateRoute();
+      }
+    }
+
+    function updateUI() {
+      const startDisplay = document.getElementById('start-display');
+      const startCoord = document.getElementById('start-coord');
+      const startConn = document.getElementById('start-connections');
+
+      if (selectedStart && rawLocations[selectedStart]) {
+        const info = rawLocations[selectedStart];
+        startDisplay.textContent = `Node ${selectedStart} — Stop ${info.place}`;
+        startCoord.textContent = `${info.x}, ${info.y}`;
+        startConn.textContent = `${info.neighbors ? info.neighbors.length : 0} Road Connections`;
+      } else {
+        startDisplay.textContent = 'None Selected (Type or Click Map)';
+        startCoord.textContent = '--';
+        startConn.textContent = '--';
+      }
+
+      const destDisplay = document.getElementById('dest-display');
+      const destCoord = document.getElementById('dest-coord');
+      const destConn = document.getElementById('dest-connections');
+
+      if (selectedDest && rawLocations[selectedDest]) {
+        const info = rawLocations[selectedDest];
+        destDisplay.textContent = `Node ${selectedDest} — Stop ${info.place}`;
+        destCoord.textContent = `${info.x}, ${info.y}`;
+        destConn.textContent = `${info.neighbors ? info.neighbors.length : 0} Road Connections`;
+      } else {
+        destDisplay.textContent = 'None Selected (Type or Click Map)';
+        destCoord.textContent = '--';
+        destConn.textContent = '--';
+      }
+    }
+
+    // Toggle Display Labels on/off (Node names and edge distances)
+    function toggleLabels() {
+      labelsVisible = !labelsVisible;
+      const btn = document.getElementById('toggle-labels-btn');
+      const btnText = document.getElementById('labels-btn-text');
+
+      if (labelsVisible) {
+        btnText.textContent = "Labels: ON";
+        btn.className = "text-xs bg-brand-50 text-brand-900 border-brand-300 font-semibold px-2.5 py-1.5 rounded-lg border shadow-sm hover:bg-brand-100 transition-all duration-150 cursor-pointer flex items-center gap-1.5 active:scale-95";
+      } else {
+        btnText.textContent = "Labels: OFF";
+        btn.className = "text-xs bg-slate-100 text-slate-500 border-slate-300 font-semibold px-2.5 py-1.5 rounded-lg border shadow-sm hover:bg-slate-200 transition-all duration-150 cursor-pointer flex items-center gap-1.5 active:scale-95";
+      }
+
+      // Update Node Labels
+      if (visNodes) {
+        const nodeUpdates = [];
+        for (const [idStr, info] of Object.entries(rawLocations)) {
+          const id = parseInt(idStr);
+          nodeUpdates.push({
+            id: id,
+            label: labelsVisible ? `Stop ${info.place}` : '',
+            font: { size: labelsVisible ? 13 : 0 }
+          });
+        }
+        visNodes.update(nodeUpdates);
+      }
+
+      // Update Edge Labels
+      if (visEdges) {
+        const edgeUpdates = [];
+        visEdges.forEach(edge => {
+          const dist = (edge.distance !== undefined && edge.distance !== null) ? edge.distance : (edgeDistances[edge.id] || 0);
+          edgeUpdates.push({
+            id: edge.id,
+            distance: dist,
+            label: labelsVisible ? `${dist} km` : '',
+            font: {
+              size: labelsVisible ? 11 : 0
+            }
+          });
+        });
+        visEdges.update(edgeUpdates);
+      }
+    }
+
+    function refreshGraphHighlights() {
+      if (!visNodes || !visEdges) return;
+
+      // Update node colors and sizes
+      const nodeUpdates = [];
+      for (const [idStr, info] of Object.entries(rawLocations)) {
+        const id = parseInt(idStr);
+        const isStart = (id === selectedStart);
+        const isDest = (id === selectedDest);
+        const isPath = currentRoutePath.includes(id);
+
+        let color = COLORS.defaultNode;
+        let size = 26;
+
+        if (isStart) {
+          color = COLORS.startNode;
+          size = 32;
+        } else if (isDest) {
+          color = COLORS.destNode;
+          size = 32;
+        } else if (isPath) {
+          color = COLORS.pathNode;
+          size = 28;
+        }
+
+        nodeUpdates.push({
+          id: id,
+          color: color,
+          size: size,
+          label: labelsVisible ? `Stop ${info.place}` : '',
+          font: { size: labelsVisible ? 13 : 0 }
+        });
+      }
+      visNodes.update(nodeUpdates);
+
+      // Build path edge set
+      const pathEdgeKeys = new Set();
+      if (currentRoutePath.length > 1) {
+        for (let i = 0; i < currentRoutePath.length - 1; i++) {
+          const a = currentRoutePath[i];
+          const b = currentRoutePath[i + 1];
+          pathEdgeKeys.add(`${Math.min(a, b)}-${Math.max(a, b)}`);
+        }
+      }
+
+      // Update edge highlights
+      const edgeUpdates = [];
+      visEdges.forEach(edge => {
+        const key = `${Math.min(edge.from, edge.to)}-${Math.max(edge.from, edge.to)}`;
+        const isPathEdge = pathEdgeKeys.has(key);
+        const dist = (edge.distance !== undefined && edge.distance !== null) ? edge.distance : (edgeDistances[edge.id] || 0);
+
+        edgeUpdates.push({
+          id: edge.id,
+          distance: dist,
+          width: isPathEdge ? 5 : 2,
+          color: isPathEdge ? { color: '#0284c7', highlight: '#0ea5e9' } : { color: '#94a3b8', highlight: '#64748b' },
+          label: labelsVisible ? `${dist} km` : '',
+          font: {
+            size: labelsVisible ? 11 : 0
+          },
+          dashes: false
+        });
+      });
+      visEdges.update(edgeUpdates);
+    }
+
+    // Call Dijkstra Algorithm from backend API
+    async function calculateRoute() {
+      if (!selectedStart || !selectedDest) {
+        alert('Please select both a Starting Point and a Destination.');
+        return;
+      }
+
+      const routeBtn = document.getElementById('route-btn');
+      const btnText = document.getElementById('route-btn-text');
+      btnText.textContent = 'Calculating Shortest Route...';
+      routeBtn.classList.add('opacity-75', 'cursor-wait');
+
+      try {
+        let result = null;
+
+        // Try calling backend/graph.py via /api/route
+        try {
+          const res = await fetch(`/api/route?start=${selectedStart}&destination=${selectedDest}`);
+          if (res.ok) {
+            result = await res.json();
+          }
+        } catch (apiErr) {
+          console.warn('API error, falling back to client-side Dijkstra:', apiErr);
+        }
+
+        // If server is not responding, use client-side Dijkstra algorithm
+        if (!result || !result.success) {
+          result = runLocalDijkstra(selectedStart, selectedDest);
+        }
+
+        displayRouteResults(result);
+
+      } catch (err) {
+        console.error('Route calculation failed:', err);
+        alert('Route calculation error: ' + err.message);
+      } finally {
+        btnText.textContent = 'Find Shortest Route';
+        routeBtn.classList.remove('opacity-75', 'cursor-wait');
+      }
+    }
+
+    // Client-side Dijkstra fallback replicating backend/graph.py exactly
+    function runLocalDijkstra(startId, endId) {
+      const adj = {};
+      for (const [idStr, info] of Object.entries(rawLocations)) {
+        const u = parseInt(idStr);
+        adj[u] = [];
+        for (const [v, w] of info.neighbors) {
+          adj[u].push([v, w]);
+        }
+      }
+
+      if (startId === endId) {
+        return {
+          success: true,
+          reachable: true,
+          start: startId,
+          start_name: `Stop ${rawLocations[startId].place}`,
+          destination: endId,
+          destination_name: `Stop ${rawLocations[endId].place}`,
+          total_distance: 0,
+          path: [startId],
+          hops: [{ step: 1, node_id: startId, place_name: `Stop ${rawLocations[startId].place}`, leg_distance: 0, cumulative_distance: 0 }],
+          total_stops: 1,
+          fuel_liters: 0,
+          fuel_cost_php: 0,
+          algorithm: "Dijkstra's Algorithm (backend/graph.py)"
+        };
+      }
+
+      const min_dist = {};
+      const parent = {};
+      const visited = new Set();
+      for (const node in adj) {
+        min_dist[node] = Infinity;
+        parent[node] = null;
+      }
+      min_dist[startId] = 0;
+
+      const pq = [[0, startId]];
+
+      while (pq.length > 0) {
+        pq.sort((a, b) => a[0] - b[0]);
+        const [currDist, currNode] = pq.shift();
+
+        if (visited.has(currNode)) continue;
+        visited.add(currNode);
+
+        if (currNode === endId) break;
+
+        for (const [neighbor, weight] of (adj[currNode] || [])) {
+          if (visited.has(neighbor)) continue;
+          const newDist = currDist + weight;
+          if (newDist < min_dist[neighbor]) {
+            min_dist[neighbor] = newDist;
+            parent[neighbor] = currNode;
+            pq.push([newDist, neighbor]);
+          }
+        }
+      }
+
+      if (min_dist[endId] === Infinity) {
+        return { success: false, reachable: false, message: 'Unreachable destination.' };
+      }
+
+      const path = [];
+      let curr = endId;
+      while (curr !== null) {
+        path.push(curr);
+        curr = parent[curr];
+      }
+      path.reverse();
+
+      const hops = [];
+      let cumulative = 0;
+      for (let i = 0; i < path.length; i++) {
+        const nId = path[i];
+        let leg = 0;
+        if (i > 0) {
+          const prev = path[i - 1];
+          const edge = (adj[prev] || []).find(e => e[0] === nId);
+          if (edge) leg = edge[1];
+          cumulative += leg;
+        }
+        hops.push({
+          step: i + 1,
+          node_id: nId,
+          place_name: `Stop ${rawLocations[nId].place}`,
+          leg_distance: leg,
+          cumulative_distance: cumulative
+        });
+      }
+
+      const totalDist = min_dist[endId];
+      const fuelLiters = Math.round(totalDist * 0.12 * 100) / 100;
+      const fuelCost = Math.round(fuelLiters * 65.50 * 100) / 100;
+
+      return {
+        success: true,
+        reachable: true,
+        start: startId,
+        start_name: `Stop ${rawLocations[startId].place}`,
+        destination: endId,
+        destination_name: `Stop ${rawLocations[endId].place}`,
+        total_distance: totalDist,
+        path: path,
+        hops: hops,
+        total_stops: path.length,
+        fuel_liters: fuelLiters,
+        fuel_cost_php: fuelCost,
+        algorithm: "Dijkstra's Algorithm (backend/graph.py)"
+      };
+    }
+
+    function displayRouteResults(data) {
+      if (!data.reachable || !data.path || data.path.length === 0) {
+        alert(data.message || 'No route found between the selected nodes.');
+        return;
+      }
+
+      currentRoutePath = data.path;
+      refreshGraphHighlights();
+
+      // Update metrics
+      document.getElementById('res-distance').textContent = data.total_distance.toFixed(1);
+      document.getElementById('res-fuel').textContent = (data.fuel_liters || (data.total_distance * 0.12)).toFixed(2);
+      document.getElementById('res-cost').textContent = `Est. ₱${(data.fuel_cost_php || (data.total_distance * 0.12 * 65.5)).toFixed(2)} diesel`;
+      document.getElementById('res-hops-count').textContent = `${data.total_stops} Stops (${data.hops.length - 1} Legs)`;
+
+      // Render Itinerary Timeline
+      const timeline = document.getElementById('timeline-container');
+      timeline.innerHTML = '';
+
+      data.hops.forEach((hop, idx) => {
+        const isFirst = (idx === 0);
+        const isLast = (idx === data.hops.length - 1);
+
+        const row = document.createElement('div');
+        row.className = "flex items-center justify-between p-2 rounded-lg bg-slate-50 hover:bg-slate-100 border border-slate-200/60 transition-colors text-xs cursor-pointer";
+        row.title = "Click to focus on graph";
+        row.onclick = () => focusNodeOnMap(hop.node_id);
+
+        let badgeColor = "bg-brand-900 text-white";
+        if (isFirst) {
+          badgeColor = "bg-emerald-600 text-white";
+        } else if (isLast) {
+          badgeColor = "bg-rose-600 text-white";
+        }
+
+        row.innerHTML = `
+          <div class="flex items-center space-x-2">
+            <span class="w-5 h-5 rounded-full ${badgeColor} flex items-center justify-center font-bold text-[10px] shadow-sm">
+              ${hop.step}
+            </span>
+            <div>
+              <span class="font-bold text-slate-800">${hop.place_name}</span>
+              <span class="text-[10px] text-slate-500 font-mono ml-1">(Node ${hop.node_id})</span>
+            </div>
+          </div>
+          <div class="text-right">
+            ${isFirst ? 
+              `<span class="text-[10px] font-bold text-emerald-700 uppercase">Departure</span>` : 
+              `<span class="font-bold text-slate-700">+${hop.leg_distance} km</span>
+               <span class="text-[10px] text-slate-500 block">Total: ${hop.cumulative_distance} km</span>`
+            }
+          </div>
+        `;
+        timeline.appendChild(row);
+      });
+
+      // Frame route on the canvas
+      if (network && data.path.length > 0) {
+        network.fit({
+          nodes: data.path,
+          animation: { duration: 500, easingFunction: 'easeInOutQuad' }
+        });
+      }
+    }
+
+    function focusNodeOnMap(nodeId) {
+      if (network) {
+        network.focus(nodeId, {
+          scale: 1.3,
+          animation: { duration: 400, easingFunction: 'easeInOutQuad' }
+        });
+      }
+    }
+
+    // Enhanced Fit Network centering all nodes with balanced margins
+    function fitNetwork(animate = true) {
+      if (network && visNodes && visNodes.length > 0) {
+        network.setSize('100%', '100%');
+        network.fit({
+          nodes: visNodes.getIds(),
+          animation: animate ? { duration: 500, easingFunction: 'easeInOutQuad' } : false
+        });
+      }
+    }
+
+    function setupResizeObserver() {
+      const container = document.getElementById('network-canvas');
+      if (window.ResizeObserver && container) {
+        const ro = new ResizeObserver(() => {
+          if (network) {
+            network.setSize('100%', '100%');
+            fitNetwork(false);
+          }
+        });
+        ro.observe(container);
+      }
+      window.addEventListener('resize', () => {
+        if (network) {
+          network.setSize('100%', '100%');
+          fitNetwork(false);
+        }
+      });
+    }
+
+    function togglePhysics() {
+      physicsEnabled = !physicsEnabled;
+      const indicator = document.getElementById('physics-indicator');
+      const btnText = document.querySelector('#physics-toggle-btn span:last-child');
+
+      if (network) {
+        if (physicsEnabled) {
+          network.setOptions({ physics: { enabled: true } });
+          indicator.className = "w-1.5 h-1.5 rounded-full bg-emerald-500 animate-pulse";
+          btnText.textContent = "Physics ON";
+        } else {
+          network.setOptions({ physics: { enabled: false } });
+          indicator.className = "w-1.5 h-1.5 rounded-full bg-slate-400";
+          btnText.textContent = "Fixed Coords";
+
+          // Restore exact fixed coordinates from test_data.json
+          if (visNodes) {
+            const resetPositions = [];
+            for (const [idStr, info] of Object.entries(rawLocations)) {
+              const id = parseInt(idStr);
+              resetPositions.push({
+                id: id,
+                x: info.x * 100,
+                y: info.y * -100
+              });
+            }
+            visNodes.update(resetPositions);
+            setTimeout(() => fitNetwork(true), 80);
+          }
+        }
+      }
+    }
+
+    function resetResultsCard() {
+      document.getElementById('res-distance').textContent = '--';
+      document.getElementById('res-fuel').textContent = '--';
+      document.getElementById('res-cost').textContent = 'Est. -- diesel';
+      document.getElementById('res-hops-count').textContent = '0 Stops (0 Legs)';
+      const timeline = document.getElementById('timeline-container');
+      timeline.innerHTML = `
+        <div class="p-4 text-center text-xs text-slate-500 bg-slate-50 border border-slate-200/60 rounded-xl">
+          <p class="font-bold text-slate-700">No route selected</p>
+          <p class="text-[11px] text-slate-500 mt-1">Select a starting point and destination above, then click "Find Shortest Route".</p>
+        </div>
+      `;
+    }
+
+    function resetAll() {
+      selectedStart = null;
+      selectedDest = null;
+      currentRoutePath = [];
+
+      if (tomSelectStart) tomSelectStart.clear(true);
+      if (tomSelectDest) tomSelectDest.clear(true);
+
+      setSelectMode('start');
+      updateUI();
+      refreshGraphHighlights();
+      resetResultsCard();
+      fitNetwork(true);
+    }
+
+    // Start on DOM ready
+    window.addEventListener('DOMContentLoaded', initApp);
+  </script>
+
+</body>
+</html>
