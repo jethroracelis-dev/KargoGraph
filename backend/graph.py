@@ -15,8 +15,8 @@ def add_location(node_id:int, place:str, x_loc:float = None, y_loc:float = None)
     graph.add_node(
         node_id,
         label = place,
-        x = x_loc * 100,
-        y = y_loc * -100,
+        x = x_loc / 1000,
+        y = y_loc / -1000,
     )
 
 def add_road(node_a, node_b, distance):
